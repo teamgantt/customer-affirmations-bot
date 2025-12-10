@@ -77,6 +77,10 @@ cd rayfirmations
    database_id = "your-d1-database-id"
    ```
 
+### 2.5 Setup DB
+
+`wrangler d1 execute CUSTOMER_AFFIRMATIONS_DB --remote --file=./schema.sql`
+
 ### 3. Deploy to Cloudflare
 
 ```bash
@@ -102,7 +106,9 @@ wrangler deploy
 
 5. **Configure Interactive Components**:
 
-   - Request URL: `https://your-worker.your-subdomain.workers.dev`
+Interactivity and Shortcuts
+
+- Request URL: `https://your-worker.your-subdomain.workers.dev`
 
 6. **Add Required Scopes** (in OAuth & Permissions):
 
