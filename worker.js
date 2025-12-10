@@ -1,6 +1,6 @@
 /**
  * Enhanced Customer Affirmation Slack Bot - Cloudflare Worker
- * Responds to /customer_affirm slash command with customer affirmations
+ * Responds to /customer_love slash command with customer affirmations
  */
 
 export default {
@@ -39,15 +39,37 @@ export default {
     async function getRandomCustomerAffirmation() {
       try {
         const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
-          "SELECT text FROM quotes ORDER BY RANDOM() LIMIT 1"
+          "SELECT text, text_author FROM quotes ORDER BY RANDOM() LIMIT 1"
         ).first();
-        return result ? result.text : "I am grateful for your support.";
+        return result
+          ? { text: result.text, text_author: result.text_author || null }
+          : { text: "I am grateful for your support.", text_author: null };
       } catch (error) {
         console.error(
           "Error getting random customer affirmation from D1:",
           error
         );
-        return "I am grateful for your support.";
+        return { text: "I am grateful for your support.", text_author: null };
+      }
+    }
+
+    // Helper function to get a customer affirmation by text (for sharing)
+    async function getCustomerAffirmationByText(quoteText) {
+      try {
+        const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
+          "SELECT text, text_author FROM quotes WHERE text = ? LIMIT 1"
+        )
+          .bind(quoteText)
+          .first();
+        return result
+          ? { text: result.text, text_author: result.text_author || null }
+          : null;
+      } catch (error) {
+        console.error(
+          "Error getting customer affirmation by text from D1:",
+          error
+        );
+        return null;
       }
     }
 
@@ -55,7 +77,7 @@ export default {
     async function getLastCustomerAffirmationsWithContributors(limit = 5) {
       try {
         const results = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
-          `SELECT text, added_by_id, added_at FROM customer_affirmations ORDER BY added_at DESC LIMIT ?`
+          `SELECT text, added_by_id, added_at FROM quotes ORDER BY added_at DESC LIMIT ?`
         )
           .bind(limit)
           .all();
@@ -69,7 +91,7 @@ export default {
       }
     }
 
-    // Helper function to log a rayfirm share
+    // Helper function to log a customer affirmation share
     async function logCustomerAffirmationShare(userId) {
       try {
         await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
@@ -203,7 +225,7 @@ export default {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: ':bulb: *To add a new customer affirmation, use:* `/customer_affirm add "Quote here"`',
+          text: ':bulb: *To add a new customer affirmation, use:* `/customer_love add "Quote here" "Name (email)"`',
         },
       });
 
@@ -220,12 +242,12 @@ export default {
     }
 
     // Helper function to add new quote to database
-    async function addNewQuote(quoteText, addedByUserId) {
+    async function addNewQuote(quoteText, addedByUserId, textAuthor = null) {
       try {
         const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
-          "INSERT INTO quotes (text, added_by_id, added_at) VALUES (?, ?, datetime('now', 'utc'))"
+          "INSERT INTO quotes (text, added_by_id, text_author, added_at) VALUES (?, ?, ?, datetime('now', 'utc'))"
         )
-          .bind(quoteText, addedByUserId)
+          .bind(quoteText, addedByUserId, textAuthor)
           .run();
         return result.success;
       } catch (error) {
@@ -240,12 +262,18 @@ export default {
       userName,
       totalCount
     ) {
+      // customerAffirmation can be either a string (legacy) or an object with text and text_author
+      const affirmationText =
+        typeof customerAffirmation === "string"
+          ? customerAffirmation
+          : customerAffirmation.text;
+
       return [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `✨ ${customerAffirmation}`,
+            text: `✨ ${affirmationText}`,
           },
         },
         {
@@ -268,7 +296,7 @@ export default {
                 text: "💫 Customer Affirmation",
                 emoji: true,
               },
-              value: customerAffirmation,
+              value: affirmationText,
               action_id: "customer_affirmation_share",
               style: "primary",
             },
@@ -289,16 +317,38 @@ export default {
     try {
       const formData = await request.formData();
       const payload = formData.get("payload");
+      const command = formData.get("command");
+
+      // Log all form data keys for debugging
+      const formDataKeys = [];
+      for (const [key] of formData.entries()) {
+        formDataKeys.push(key);
+      }
+      console.log("Form data keys:", formDataKeys);
+      console.log("Has payload:", !!payload);
+      console.log("Has command:", !!command);
 
       if (payload) {
-        const interactionData = JSON.parse(payload);
-        console.log(
-          "interactionData",
-          JSON.stringify(interactionData, null, 2)
-        );
+        let interactionData;
+        try {
+          interactionData = JSON.parse(payload);
+          console.log(
+            "interactionData type:",
+            interactionData.type,
+            "Full data:",
+            JSON.stringify(interactionData, null, 2)
+          );
+        } catch (parseError) {
+          console.error("Error parsing payload JSON:", parseError);
+          return Response.json(
+            { error: "Invalid payload format" },
+            { status: 400 }
+          );
+        }
 
         // Handle Slack URL verification (rare for interactions, but just in case)
         if (interactionData.type === "url_verification") {
+          console.log("Handling URL verification");
           return new Response(interactionData.challenge, {
             headers: { "Content-Type": "text/plain" },
           });
@@ -309,28 +359,50 @@ export default {
           interactionData.type === "interactive_message" ||
           interactionData.type === "block_actions"
         ) {
+          console.log("Handling block_actions/interactive_message");
+          // Safety check for actions array
+          if (!interactionData.actions || !interactionData.actions[0]) {
+            console.error("No actions found in interaction data");
+            return Response.json({});
+          }
+
           const action = interactionData.actions[0];
-          const userName = interactionData.user.name;
+          const userName = interactionData.user?.name || "teammate";
 
           if (action.action_id === "shuffle_affirmation") {
             console.log("IS SHUFFLING");
-            const newCustomerAffirmation = await getRandomCustomerAffirmation();
-            const totalCount = await getTotalCount();
 
-            // 2. Then, asynchronously POST to the response_url
-            await fetch(interactionData.response_url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                replace_original: true,
-                text: "🎲 Shuffled! Here is a new customer affirmation.",
-                blocks: createCustomerAffirmationBlocks(
-                  newCustomerAffirmation,
-                  userName,
-                  totalCount
-                ),
-              }),
-            });
+            // Return immediate acknowledgment to Slack (required within 3 seconds)
+            // Then update the message asynchronously using response_url
+            ctx.waitUntil(
+              (async () => {
+                try {
+                  const newCustomerAffirmation =
+                    await getRandomCustomerAffirmation();
+                  const totalCount = await getTotalCount();
+
+                  // POST to the response_url to update the message
+                  await fetch(interactionData.response_url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      replace_original: true,
+                      text: "🎲 Shuffled! Here is a new customer affirmation.",
+                      blocks: createCustomerAffirmationBlocks(
+                        newCustomerAffirmation,
+                        userName,
+                        totalCount
+                      ),
+                    }),
+                  });
+                } catch (error) {
+                  console.error("Error updating shuffle message:", error);
+                }
+              })()
+            );
+
+            // Return immediate empty response to acknowledge the interaction
+            return Response.json({});
           }
 
           if (action.action_id === "customer_affirmation_share") {
@@ -339,52 +411,87 @@ export default {
               interactionData.response_url
             );
             // Share the current customer affirmation with everyone
-            const currentCustomerAffirmation = action.value;
+            const currentCustomerAffirmationText = action.value;
+            const userId = interactionData.user?.id || "unknown";
+            const userName = interactionData.user?.name || "teammate";
 
-            // Log the share in command_log
-            await logCustomerAffirmationShare(interactionData.user.id);
+            // Return immediate acknowledgment to Slack (required within 3 seconds)
+            // Then update the message asynchronously using response_url
+            ctx.waitUntil(
+              (async () => {
+                try {
+                  // Log the share in command_log
+                  await logCustomerAffirmationShare(userId);
 
-            // Use the response_url to post in-channel
-            await fetch(interactionData.response_url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                delete_original: true,
-                response_type: "in_channel",
-                text: `${userName} customer affirmations: "${currentCustomerAffirmation}"`,
-                blocks: [
-                  {
-                    type: "section",
-                    text: {
-                      type: "mrkdwn",
-                      text: `_${currentCustomerAffirmation}_`,
-                    },
-                  },
-                  {
-                    type: "context",
-                    elements: [
-                      {
-                        type: "mrkdwn",
-                        text: `Customer affirmed by <@${interactionData.user.id}>`,
-                      },
-                    ],
-                  },
-                ],
-              }),
-            });
+                  // Get the quote with author information
+                  const quoteData = await getCustomerAffirmationByText(
+                    currentCustomerAffirmationText
+                  );
+
+                  // Build the context text
+                  let contextText = `Requested by <@${userId}>`;
+                  if (quoteData && quoteData.text_author) {
+                    contextText = `By: ${quoteData.text_author} • Requested by <@${userId}>`;
+                  }
+
+                  // Use the response_url to post in-channel
+                  await fetch(interactionData.response_url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      delete_original: true,
+                      response_type: "in_channel",
+                      text: `${userName} customer affirmations: "${currentCustomerAffirmationText}"`,
+                      blocks: [
+                        {
+                          type: "section",
+                          text: {
+                            type: "mrkdwn",
+                            text: `_${currentCustomerAffirmationText}_`,
+                          },
+                        },
+                        {
+                          type: "context",
+                          elements: [
+                            {
+                              type: "mrkdwn",
+                              text: contextText,
+                            },
+                          ],
+                        },
+                      ],
+                    }),
+                  });
+                } catch (error) {
+                  console.error("Error sharing customer affirmation:", error);
+                }
+              })()
+            );
+
+            // Return immediate empty response to acknowledge the interaction
+            return Response.json({});
           }
+
+          // If we get here, the action_id didn't match any handler
+          console.warn("Unhandled action_id:", action.action_id);
+          return Response.json({});
         }
-        console.log("IS INTERACTION");
-        // Return 200 OK for any unhandled interactions
-        return new Response("OK", { status: 200 });
-      } else if (formData.has("command")) {
-        console.log("command", JSON.stringify(formData, null, 2));
-        console.log("IS INITIAL COMMAND REQUEST");
+
+        // If we get here, the interaction type didn't match block_actions or interactive_message
+        console.warn("Unhandled interaction type:", interactionData.type);
+        return Response.json({});
+      } else if (command) {
+        console.log("Handling slash command:", command);
+        console.log("Command form data:", {
+          command: formData.get("command"),
+          text: formData.get("text"),
+          user_name: formData.get("user_name"),
+          user_id: formData.get("user_id"),
+        });
         // Slash command
         const userName = formData.get("user_name") || "teammate";
         const userId = formData.get("user_id") || "unknown";
         const text = formData.get("text") || "";
-        const quoteAuthor = formData.get("quote_author") || "";
 
         // Handle Slack's URL verification challenge (only needed during setup)
         const challenge = formData.get("challenge");
@@ -394,42 +501,197 @@ export default {
           });
         }
 
+        // Check if user wants help
+        if (text.trim().toLowerCase() === "help") {
+          return Response.json({
+            response_type: "ephemeral",
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: ':bulb: *To add a new customer affirmation, use:* `/customer_love add "Quote here" "Name (email)"`',
+                },
+              },
+              {
+                type: "context",
+                elements: [
+                  {
+                    type: "mrkdwn",
+                    text: `Requested by @${userName}`,
+                  },
+                ],
+              },
+            ],
+          });
+        }
+
         // Check if user wants to add a new quote
         if (text.trim().toLowerCase() === "new") {
           return Response.json({
             response_type: "ephemeral",
-            text: '🤖 To add a new customer affirmation, please use the format:\n`/customer_affirm add "Your new quote here" "Your name here"`\n\nExample: `/customer_affirm add "TG is absolutely amazing!" "Jane Doe"`',
+            text: '🤖 To add a new customer affirmation, please use the format:\n`/customer_love add "Your new quote here" "Name (email)"`\n\nExample: `/customer_love add "TG is absolutely amazing!" "Jimmy Donaldson (jimmy@someemail.com)"`',
           });
         }
 
         // Check if user wants to add a new quote with the quote
         if (text.trim().toLowerCase().startsWith("add ")) {
-          console.log("text", text);
+          console.log("Raw text from Slack:", JSON.stringify(text));
+          console.log("text length:", text.length);
+          console.log(
+            "text char codes:",
+            Array.from(text)
+              .map((c) => `${c}:${c.charCodeAt(0)}`)
+              .join(", ")
+          );
 
           // More flexible quote parsing - handle different quote formats
           const addText = text.substring(4).trim(); // Remove "add " prefix
-          console.log("addText", addText);
+          console.log(
+            "addText after substring(4).trim():",
+            JSON.stringify(addText)
+          );
+          console.log("addText length:", addText.length);
 
           let newQuote = "";
+          let textAuthor = null;
 
-          // Try to extract quote from various formats
-          if (addText.startsWith('"') && addText.endsWith('"')) {
-            // Format: add "quote"
-            newQuote = addText.slice(1, -1);
-          } else if (addText.startsWith("'") && addText.endsWith("'")) {
-            // Format: add 'quote'
-            newQuote = addText.slice(1, -1);
-          } else if (addText.includes('"')) {
-            // Format: add "quote with spaces
-            const firstQuote = addText.indexOf('"');
-            const lastQuote = addText.lastIndexOf('"');
-            if (firstQuote !== lastQuote) {
-              newQuote = addText.substring(firstQuote + 1, lastQuote);
+          // Function to parse quoted strings properly
+          // Simple approach: find quoted strings and treat everything inside as one argument
+          function parseQuotedStrings(input) {
+            console.log("parseQuotedStrings input:", JSON.stringify(input));
+            const results = [];
+            let i = 0;
+            const len = input.length;
+
+            while (i < len) {
+              // Skip whitespace between arguments
+              while (i < len && /\s/.test(input[i])) {
+                i++;
+              }
+
+              if (i >= len) break;
+
+              const char = input[i];
+              const charCode = input.charCodeAt(i);
+
+              // Check if we're starting a quoted string
+              // Support: " (34), ' (39), " (8220), " (8221), ' (8216), ' (8217)
+              const isQuote =
+                char === '"' ||
+                char === "'" ||
+                charCode === 8220 ||
+                charCode === 8221 ||
+                charCode === 8216 ||
+                charCode === 8217;
+
+              if (isQuote) {
+                const openingQuoteCode = charCode;
+                i++; // Skip opening quote
+                let content = "";
+                let escaped = false;
+
+                // Read EVERYTHING until we find the matching closing quote
+                // This includes spaces, parentheses, @ symbols, etc. - everything is one argument
+                while (i < len) {
+                  const currentChar = input[i];
+                  const currentCharCode = input.charCodeAt(i);
+
+                  if (escaped) {
+                    // Handle escaped characters
+                    content += currentChar;
+                    escaped = false;
+                    i++;
+                  } else if (currentChar === "\\") {
+                    // Next character is escaped
+                    escaped = true;
+                    i++;
+                  } else {
+                    // Check for matching closing quote
+                    let isClosingQuote = false;
+                    if (
+                      (openingQuoteCode === 34 && currentCharCode === 34) ||
+                      (openingQuoteCode === 8220 && currentCharCode === 8221) ||
+                      (openingQuoteCode === 8221 && currentCharCode === 8221)
+                    ) {
+                      // Double quote variants
+                      isClosingQuote = true;
+                    } else if (
+                      (openingQuoteCode === 39 && currentCharCode === 39) ||
+                      (openingQuoteCode === 8216 && currentCharCode === 8217) ||
+                      (openingQuoteCode === 8217 && currentCharCode === 8217)
+                    ) {
+                      // Single quote variants
+                      isClosingQuote = true;
+                    }
+
+                    if (isClosingQuote) {
+                      // Found the matching closing quote - this argument is complete
+                      i++; // Skip closing quote
+                      results.push(content);
+                      console.log(`Extracted quoted argument: "${content}"`);
+                      break;
+                    } else {
+                      // Regular character - add it to content (including spaces!)
+                      content += currentChar;
+                      i++;
+                    }
+                  }
+                }
+
+                // If we exited the loop without finding a closing quote, log a warning
+                if (i >= len && content) {
+                  console.warn(
+                    `Warning: Unclosed quote detected. Content: "${content}"`
+                  );
+                  results.push(content);
+                }
+              } else {
+                // Not a quoted string - skip this character and continue
+                // (We only want to extract quoted arguments)
+                i++;
+              }
             }
-            const quoteAuthor = addText.substring(firstQuote + 1, lastQuote);
+
+            console.log("parseQuotedStrings results:", results);
+            return results;
+          }
+
+          const parsedArgs = parseQuotedStrings(addText);
+          console.log("parsedArgs", parsedArgs);
+          console.log("parsedArgs length:", parsedArgs.length);
+          console.log("parsedArgs[0]:", parsedArgs[0]);
+          console.log("parsedArgs[1]:", parsedArgs[1]);
+
+          if (parsedArgs.length >= 2) {
+            // We have both quote and author
+            newQuote = parsedArgs[0];
+            textAuthor = parsedArgs[1];
+            console.log(
+              "Using both arguments - quote:",
+              newQuote,
+              "author:",
+              textAuthor
+            );
+          } else if (parsedArgs.length === 1) {
+            // Only one quoted string found - treat as quote
+            newQuote = parsedArgs[0];
+            console.log("Using single argument as quote:", newQuote);
           } else {
-            // No quotes found, treat the whole text as the quote
-            newQuote = addText;
+            // No quoted strings found, try the old parsing logic as fallback
+            if (addText.startsWith('"') && addText.endsWith('"')) {
+              newQuote = addText.slice(1, -1);
+            } else if (addText.startsWith("'") && addText.endsWith("'")) {
+              newQuote = addText.slice(1, -1);
+            } else if (addText.includes('"')) {
+              const firstQuote = addText.indexOf('"');
+              const lastQuote = addText.lastIndexOf('"');
+              if (firstQuote !== lastQuote) {
+                newQuote = addText.substring(firstQuote + 1, lastQuote);
+              }
+            } else {
+              newQuote = addText;
+            }
           }
 
           // If extraction failed or resulted in empty string, use the whole addText
@@ -438,6 +700,7 @@ export default {
           }
 
           console.log("newQuote", newQuote);
+          console.log("textAuthor", textAuthor);
 
           if (newQuote.length > 500) {
             return Response.json({
@@ -446,14 +709,37 @@ export default {
             });
           }
 
-          const cleanedQuote = newQuote.replace(/["'""']/g, "").trim();
+          // Remove all types of quotes (straight and curly) to ensure clean storage
+          // This is a safety measure - the parser should already have removed them
+          const quoteRegex = /[""'""''']/g;
+          const cleanedQuote = newQuote.replace(quoteRegex, "").trim();
+          const cleanedAuthor = textAuthor
+            ? textAuthor.replace(quoteRegex, "").trim()
+            : null;
 
-          const success = await addNewQuote(cleanedQuote, userId);
+          console.log(
+            "After cleaning - quote:",
+            cleanedQuote,
+            "author:",
+            cleanedAuthor
+          );
+
+          const success = await addNewQuote(
+            cleanedQuote,
+            userId,
+            cleanedAuthor
+          );
 
           if (success) {
+            let successMessage = `✅ Successfully added new customer affirmation!\n\n>${newQuote}`;
+            if (cleanedAuthor) {
+              successMessage += `\n\nBy: ${cleanedAuthor}`;
+            }
+            successMessage += `\n\n:customer_affirmation:Thank you for contributing to the collection! ✨`;
+
             return Response.json({
               response_type: "ephemeral",
-              text: `✅ Successfully added new customer affirmation!\n\n>${newQuote}\n\n:customer_affirmation:Thank you for contributing to the collection! ✨`,
+              text: successMessage,
               emoji: true,
             });
           } else {
@@ -496,7 +782,7 @@ export default {
 
         return Response.json({
           response_type: "ephemeral", // Private message with buttons
-          text: randomCustomerAffirmation,
+          text: randomCustomerAffirmation.text,
           blocks: createCustomerAffirmationBlocks(
             randomCustomerAffirmation,
             userName,
@@ -504,8 +790,22 @@ export default {
           ),
         });
       } else {
-        // Unknown POST
-        return new Response("Unrecognized Slack request", { status: 400 });
+        // Unknown POST - log what we received
+        console.error("Unrecognized Slack request - no payload or command");
+        console.error("Form data keys:", formDataKeys);
+        console.error(
+          "Request headers:",
+          Object.fromEntries(request.headers.entries())
+        );
+
+        // Return 200 to avoid Slack retries, but log the issue
+        return Response.json(
+          {
+            error: "Unrecognized request format",
+            received_keys: formDataKeys,
+          },
+          { status: 200 }
+        );
       }
     } catch (error) {
       console.error("Error processing customer affirmation request:", error);
