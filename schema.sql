@@ -16,6 +16,19 @@ CREATE TABLE IF NOT EXISTS quotes (
 -- Create an index on the text for faster lookups
 CREATE INDEX IF NOT EXISTS idx_quotes_text ON quotes(text);
 
+-- Create the command_log table to track when users share customer affirmations
+CREATE TABLE IF NOT EXISTS command_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create an index on user_id for faster lookups
+CREATE INDEX IF NOT EXISTS idx_command_log_user_id ON command_log(user_id);
+
+-- Create an index on created_at for faster sorting
+CREATE INDEX IF NOT EXISTS idx_command_log_created_at ON command_log(created_at);
+
 -- Insert all the customer affirmation quotes
 -- All quotes below are stored without surrounding quotes (code strips both straight and curly quotes)
 INSERT OR IGNORE INTO quotes (text, added_by_id, text_author) VALUES
