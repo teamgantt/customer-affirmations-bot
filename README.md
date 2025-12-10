@@ -40,25 +40,29 @@ cd rayfirmations
 2. **Create KV Namespace**:
 
    ```bash
-   wrangler kv:namespace create "TOTAL_COUNT"
+   wrangler kv namespace create "TOTAL_COUNT"
    ```
+
+   Copy output to wrangler.toml
 
 3. **Create D1 Database**:
 
    ```bash
-   wrangler d1 create rayfirmations-db
+   wrangler d1 create CUSTOMER_AFFIRMATIONS_DB
    ```
+
+   Copy output to wrangler.toml
 
 4. **Apply Database Schema**:
 
    ```bash
-   wrangler d1 execute rayfirmations-db --file=./schema.sql
+   wrangler d1 execute CUSTOMER_AFFIRMATIONS_DB --file=./schema.sql
    ```
 
 5. **Configure wrangler.toml** (update the file with your IDs):
 
    ```toml
-   name = "rayfirmations"
+   name = "customer-affirmations"
    main = "worker.js"
    compatibility_date = "2024-01-01"
 

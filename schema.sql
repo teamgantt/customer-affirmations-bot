@@ -1,12 +1,13 @@
--- Rayfirmations D1 Database Schema
+-- Customer Affirmations D1 Database Schema
 -- Quotes should be stored WITHOUT any surrounding straight or curly quotes (handled in code)
--- This file contains the SQL schema for storing rayfirmation quotes
+-- This file contains the SQL schema for storing customer affirmation quotes
 
 -- Create the quotes table
 CREATE TABLE IF NOT EXISTS quotes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     text TEXT NOT NULL UNIQUE,
     added_by_id TEXT,
+    text_author TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     added_at DATETIME
@@ -15,80 +16,9 @@ CREATE TABLE IF NOT EXISTS quotes (
 -- Create an index on the text for faster lookups
 CREATE INDEX IF NOT EXISTS idx_quotes_text ON quotes(text);
 
--- Insert all the rayfirmation quotes
+-- Insert all the customer affirmation quotes
 -- All quotes below are stored without surrounding quotes (code strips both straight and curly quotes)
-INSERT OR IGNORE INTO quotes (text, added_by_id) VALUES
-    ("Wow! Everything you do turns to gold!✨", "system"),
-    ("Wow! You are looking awesome today.", "system"),
-    ("This is the best company in the world. And it is made better by you being here!", "system"),
-    ("I'm glad you work here.", "system"),
-    ("Gosh, I love this place!", "system"),
-    ("You are loved, just as you are.❤️", "system"),
-    ("You make this place better.", "system"),
-    ("Your presence in this company is a source of joy and inspiration.", "system"),
-    ("You rock. You're just amazing.", "system"),
-    ("I respect you!", "system"),
-    ("TeamGantt is amazing. And that's because of you.", "system"),
-    ("I work with the greatest team in the world.", "system"),
-    ("Thank you for being a part of TeamGantt!", "system"),
-    ("I'm glad you could join me today!", "system"),
-    ("God bless you.", "system"),
-    ("Man, this day is awesome! You are awesome.", "system"),
-    ("Everyone here is so amazing. 🤩", "system"),
-    ("You are doing amazing things here at TeamGantt!", "system"),
-    ("You guys are awesome. I just can't believe the amazing work everyone does!", "system"),
-    ("You guys are knocking it out of the park!", "system"),
-    ("I love working with you and all of the amazing Team at TeamGantt!", "system"),
-    ("Everyone is pitching in big time!", "system"),
-    ("Jason's beard is just great! Magical!", "system"),
-    ("This is just awesome. You are all awesome.", "system"),
-    ("Thanks for all the hard work!", "system"),
-    ("You guys just don't stop!", "system"),
-    ("This is still the best company to be at!", "system"),
-    ("Thank you thank you thank you!", "system"),
-    ("It doesn't happen without you guys!", "system"),
-    ("It doesn't happen without each and every one of you!", "system"),
-    ("Just keep it up!", "system"),
-    ("Keep working hard!", "system"),
-    ("Everyone is just workin' smart!", "system"),
-    ("I'm surrounded by geniuses.", "system"),
-    ("Keep working it.", "system"),
-    ("This is the best company to be at.", "system"),
-    ("This doesn't happen without you guys, Period. It just doesn't.", "system"),
-    ("I feel like I'm a broken record but it keeps getting better and better.", "system"),
-    ("Awesome work, everyone!", "system"),
-    ("Good morning, great souls!", "system"),
-    ("You are the whole package. From humble to genius. :100:", "system"),
-    ("We would be lost without you!", "system"),
-    ("What a bunch of smart people!", "system"),
-    ("You don't crash the party... You make the party better!", "system"),
-    ("Everything you do is fun and interesting!", "system"),
-    ("It's not possible to put you down. There's no material. There's nothing there.", "system"),
-    ("Gantt has always been great, but it's getting even greater.", "system"),
-    ("It's mindblowing!", "system"),
-    ("I'm sure our customers are going to be blown away.", "system"),
-    ("I love working at this company because of you guys.", "system"),
-    ("We would be lost without your genius. You make everything greater.", "system"),
-    ("I do not deserve to be surrounded by such talented human beings.", "system"),
-    ("Each of you light up my day and make me want to do the best I can do, which is a fraction of what each of you do every day.", "system"),
-    ("You are the smartest and most genuine people in the room.", "system"),
-    ("WOW! You people rock!", "system"),
-    ("Everything everyone here does is extremely important!!!!", "system"),
-    ("Thank you Lord for allowing me to be surrounded by the greatest minds.", "system"),
-    ("This is the greatest job in the world. It doesn't even feel like work. It feels like we're out surfing.", "system"),
-    ("It's great to be surrounded by smarter minds.", "system"),
-    ("I marked everyone as VIP... Because you are all VIP.", "system"),
-    ("I am confident because of you guys!", "system"),
-    ("We're gonna get through this!", "system"),
-    ("We are going to keep reaching down into our souls…", "system"),
-    ("You are all A++++", "system"),
-    ("Keep it up. You are awesome!", "system"),
-    ("You are like a smart swiss army knife. You have a solution for everything. Innovation at its best!", "system"),
-    ("Have I told you 'I love you' lately?", "system"),
-    ("I love all you professors. You make my life better.", "system"),
-    ("You're an angel.", "system"),
-    ("TeamGantt is a vacation!", "system"),
-    ("Life is better when I am surrounded by all of you.", "system"),
-    ("And thank you guys for making it so easy and fun to work here. Actually, it is just all fun and no work.", "system"),
-    ("Let's get it over the fence!", "system"),
-    ("Keep it going, baby!", "system");
+INSERT OR IGNORE INTO quotes (text, added_by_id, text_author) VALUES
+    ("Love Team Gantt! Canʻt live without it <3", "system", "Faith Chase"),
+    ("TeamGantt has been very helpful! Thank you so much for the great app.", "system", "Atsushi Kodera"),
+    ("It works.", "system", "Chris Cavilla");

@@ -1,6 +1,6 @@
 /**
- * Enhanced Rayfirmation Slack Bot - Cloudflare Worker
- * Responds to /rayfirmation slash command with inspirational quotes from Ray
+ * Enhanced Customer Affirmation Slack Bot - Cloudflare Worker
+ * Responds to /customer_affirm slash command with customer affirmations
  */
 
 export default {
@@ -16,90 +16,102 @@ export default {
 
     // Helper function to get total count from KV
     async function getTotalCount() {
-      return await getTotalRayfirmShares();
+      return await getTotalCustomerAffirmationsShared();
     }
 
-    // Helper function to get total count of rayfirmations from D1
-    async function getRayfirmationsCount() {
+    // Helper function to get total count of customer affirmations from D1
+    async function getCustomerAffirmationsCount() {
       try {
-        const result = await env.RAYDB.prepare(
+        const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
           "SELECT COUNT(*) as count FROM quotes"
         ).first();
         return result ? result.count : 0;
       } catch (error) {
-        console.error("Error getting rayfirmations count from D1:", error);
-        return 0;
-      }
-    }
-
-    // Helper function to get a random rayfirmation from D1
-    async function getRandomRayfirmation() {
-      try {
-        const result = await env.RAYDB.prepare(
-          "SELECT text FROM quotes ORDER BY RANDOM() LIMIT 1"
-        ).first();
-        return result ? result.text : "You are awesome!";
-      } catch (error) {
-        console.error("Error getting random rayfirmation from D1:", error);
-        return "You are awesome!";
-      }
-    }
-
-    // Helper function to get last N quotes with contributor
-    async function getLastQuotesWithContributors(limit = 5) {
-      try {
-        const results = await env.RAYDB.prepare(
-          `SELECT text, added_by_id, added_at FROM quotes ORDER BY added_at DESC LIMIT ?`
-        )
-          .bind(limit)
-          .all();
-        return results.results || [];
-      } catch (error) {
-        console.error("Error getting last quotes from D1:", error);
-        return [];
-      }
-    }
-
-    // Helper function to log a rayfirm share
-    async function logRayfirmShare(userId) {
-      try {
-        await env.RAYDB.prepare(
-          "INSERT INTO command_log (user_id, created_at) VALUES (?, datetime('now', 'utc'))"
-        )
-          .bind(userId)
-          .run();
-      } catch (error) {
-        console.error("Error logging rayfirm share:", error);
-      }
-    }
-
-    // Helper function to get total rayfirm shares from command_log
-    async function getTotalRayfirmShares() {
-      try {
-        const result = await env.RAYDB.prepare(
-          "SELECT COUNT(*) as count FROM command_log"
-        ).first();
-        return result ? result.count : 0;
-      } catch (error) {
         console.error(
-          "Error getting total rayfirm shares from command_log:",
+          "Error getting customer affirmations count from D1:",
           error
         );
         return 0;
       }
     }
 
-    // Helper function to get top 3 Rayfirmers
-    async function getTopRayfirmers(limit = 3) {
+    // Helper function to get a random customer affirmation from D1
+    async function getRandomCustomerAffirmation() {
       try {
-        const results = await env.RAYDB.prepare(
+        const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
+          "SELECT text FROM quotes ORDER BY RANDOM() LIMIT 1"
+        ).first();
+        return result ? result.text : "I am grateful for your support.";
+      } catch (error) {
+        console.error(
+          "Error getting random customer affirmation from D1:",
+          error
+        );
+        return "I am grateful for your support.";
+      }
+    }
+
+    // Helper function to get last N quotes with contributor
+    async function getLastCustomerAffirmationsWithContributors(limit = 5) {
+      try {
+        const results = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
+          `SELECT text, added_by_id, added_at FROM customer_affirmations ORDER BY added_at DESC LIMIT ?`
+        )
+          .bind(limit)
+          .all();
+        return results.results || [];
+      } catch (error) {
+        console.error(
+          "Error getting last customer affirmations from D1:",
+          error
+        );
+        return [];
+      }
+    }
+
+    // Helper function to log a rayfirm share
+    async function logCustomerAffirmationShare(userId) {
+      try {
+        await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
+          "INSERT INTO command_log (user_id, created_at) VALUES (?, datetime('now', 'utc'))"
+        )
+          .bind(userId)
+          .run();
+      } catch (error) {
+        console.error("Error logging customer affirmation share:", error);
+      }
+    }
+
+    // Helper function to get total customer affirmation shares from command_log
+    async function getTotalCustomerAffirmationsShared() {
+      try {
+        const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
+          "SELECT COUNT(*) as count FROM command_log"
+        ).first();
+        return result ? result.count : 0;
+      } catch (error) {
+        console.error(
+          "Error getting total customer affirmation shares from command_log:",
+          error
+        );
+        return 0;
+      }
+    }
+
+    // Helper function to get top 3 Customer Affirmation Contributors
+    async function getTopCustomerAffirmationContributors(limit = 3) {
+      try {
+        const results = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
           `SELECT user_id, COUNT(*) as count FROM command_log GROUP BY user_id ORDER BY count DESC LIMIT ?`
         )
           .bind(limit)
           .all();
         return results.results || [];
       } catch (error) {
-        console.error("Error getting top Rayfirmers from command_log:", error);
+        console.error(
+          "Error getting top customer affirmation contributors from command_log:",
+          error
+        );
         return [];
       }
     }
@@ -110,14 +122,14 @@ export default {
       totalShared,
       totalQuotes,
       lastQuotes = [],
-      topRayfirmers = []
+      topCustomerAffirmationContributors = []
     ) {
       const blocks = [
         {
           type: "header",
           text: {
             type: "plain_text",
-            text: "📊 Rayfirmations Statistics",
+            text: "📊 Customer Affirmations Statistics",
             emoji: true,
           },
         },
@@ -127,14 +139,14 @@ export default {
             {
               type: "mrkdwn",
               text:
-                "*Total Rayfirmations Shared:* :chart_with_upwards_trend:\n`" +
+                "*Total Customer Affirmations Shared:* :chart_with_upwards_trend:\n`" +
                 totalShared.toLocaleString() +
                 "`",
             },
             {
               type: "mrkdwn",
               text:
-                "*Available Quotes:* :rayfirmation:\n`" +
+                "*Available Customer Affirmations:* :customer_affirmation:\n`" +
                 totalQuotes.toLocaleString() +
                 "`",
             },
@@ -142,18 +154,20 @@ export default {
         },
       ];
 
-      if (topRayfirmers.length) {
+      if (topCustomerAffirmationContributors.length) {
         blocks.push({
           type: "section",
           text: {
             type: "mrkdwn",
             text:
-              `*Top 3 Rayfirmers: :trophy:*
+              `*Top 3 Customer Affirmation Contributors: :trophy:*
 ` +
-              topRayfirmers
+              topCustomerAffirmationContributors
                 .map(
                   (u, i) =>
-                    `${i + 1}. <@${u.user_id}> — ${u.count} encouragements`
+                    `${i + 1}. <@${u.user_id}> — ${
+                      u.count
+                    } customer affirmations`
                 )
                 .join("\n"),
           },
@@ -168,7 +182,7 @@ export default {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "*Last 5 Added Rayfirmations:* :new:",
+            text: "*Last 5 Added Customer Affirmations:* :new:",
           },
         });
         lastQuotes.forEach((q, i) => {
@@ -189,7 +203,7 @@ export default {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: ':bulb: *To add a new rayfirmation, use:* `/rayfirmation add "Ray quote here"`',
+          text: ':bulb: *To add a new customer affirmation, use:* `/customer_affirm add "Quote here"`',
         },
       });
 
@@ -208,7 +222,7 @@ export default {
     // Helper function to add new quote to database
     async function addNewQuote(quoteText, addedByUserId) {
       try {
-        const result = await env.RAYDB.prepare(
+        const result = await env.CUSTOMER_AFFIRMATIONS_DB.prepare(
           "INSERT INTO quotes (text, added_by_id, added_at) VALUES (?, ?, datetime('now', 'utc'))"
         )
           .bind(quoteText, addedByUserId)
@@ -220,14 +234,18 @@ export default {
       }
     }
 
-    // Helper function to create rayfirmation blocks
-    function createRayfirmationBlocks(rayfirmation, userName, totalCount) {
+    // Helper function to create customer affirmation blocks
+    function createCustomerAffirmationBlocks(
+      customerAffirmation,
+      userName,
+      totalCount
+    ) {
       return [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `✨ ${rayfirmation}`,
+            text: `✨ ${customerAffirmation}`,
           },
         },
         {
@@ -241,17 +259,17 @@ export default {
                 emoji: true,
               },
               value: "shuffle",
-              action_id: "shuffle_rayfirmation",
+              action_id: "shuffle_affirmation",
             },
             {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "💫 Rayfirm",
+                text: "💫 Customer Affirmation",
                 emoji: true,
               },
-              value: rayfirmation,
-              action_id: "rayfirm_share",
+              value: customerAffirmation,
+              action_id: "customer_affirmation_share",
               style: "primary",
             },
           ],
@@ -261,7 +279,7 @@ export default {
           elements: [
             {
               type: "mrkdwn",
-              text: `Requested by @${userName} • Total rayfirmations shared: ${totalCount}`,
+              text: `Requested by @${userName} • Total customer affirmations shared: ${totalCount}`,
             },
           ],
         },
@@ -294,9 +312,9 @@ export default {
           const action = interactionData.actions[0];
           const userName = interactionData.user.name;
 
-          if (action.action_id === "shuffle_rayfirmation") {
+          if (action.action_id === "shuffle_affirmation") {
             console.log("IS SHUFFLING");
-            const newRayfirmation = await getRandomRayfirmation();
+            const newCustomerAffirmation = await getRandomCustomerAffirmation();
             const totalCount = await getTotalCount();
 
             // 2. Then, asynchronously POST to the response_url
@@ -305,9 +323,9 @@ export default {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 replace_original: true,
-                text: "🎲 Shuffled! Here is a new rayfirmation.",
-                blocks: createRayfirmationBlocks(
-                  newRayfirmation,
+                text: "🎲 Shuffled! Here is a new customer affirmation.",
+                blocks: createCustomerAffirmationBlocks(
+                  newCustomerAffirmation,
                   userName,
                   totalCount
                 ),
@@ -315,16 +333,16 @@ export default {
             });
           }
 
-          if (action.action_id === "rayfirm_share") {
+          if (action.action_id === "customer_affirmation_share") {
             console.log(
               "IS SHARING: response_url",
               interactionData.response_url
             );
-            // Share the current rayfirmation with everyone
-            const currentRayfirmation = action.value;
+            // Share the current customer affirmation with everyone
+            const currentCustomerAffirmation = action.value;
 
             // Log the share in command_log
-            await logRayfirmShare(interactionData.user.id);
+            await logCustomerAffirmationShare(interactionData.user.id);
 
             // Use the response_url to post in-channel
             await fetch(interactionData.response_url, {
@@ -333,13 +351,13 @@ export default {
               body: JSON.stringify({
                 delete_original: true,
                 response_type: "in_channel",
-                text: `${userName} rayfirms: "${currentRayfirmation}"`,
+                text: `${userName} customer affirmations: "${currentCustomerAffirmation}"`,
                 blocks: [
                   {
                     type: "section",
                     text: {
                       type: "mrkdwn",
-                      text: `_${currentRayfirmation}_`,
+                      text: `_${currentCustomerAffirmation}_`,
                     },
                   },
                   {
@@ -347,7 +365,7 @@ export default {
                     elements: [
                       {
                         type: "mrkdwn",
-                        text: `Rayfirmed by <@${interactionData.user.id}>`,
+                        text: `Customer affirmed by <@${interactionData.user.id}>`,
                       },
                     ],
                   },
@@ -366,6 +384,7 @@ export default {
         const userName = formData.get("user_name") || "teammate";
         const userId = formData.get("user_id") || "unknown";
         const text = formData.get("text") || "";
+        const quoteAuthor = formData.get("quote_author") || "";
 
         // Handle Slack's URL verification challenge (only needed during setup)
         const challenge = formData.get("challenge");
@@ -379,7 +398,7 @@ export default {
         if (text.trim().toLowerCase() === "new") {
           return Response.json({
             response_type: "ephemeral",
-            text: '🤖 To add a new rayfirmation, please use the format:\n`/rayfirmation add "Your new quote here"`\n\nExample: `/rayfirmation add "You are absolutely amazing!"`',
+            text: '🤖 To add a new customer affirmation, please use the format:\n`/customer_affirm add "Your new quote here" "Your name here"`\n\nExample: `/customer_affirm add "TG is absolutely amazing!" "Jane Doe"`',
           });
         }
 
@@ -407,6 +426,7 @@ export default {
             if (firstQuote !== lastQuote) {
               newQuote = addText.substring(firstQuote + 1, lastQuote);
             }
+            const quoteAuthor = addText.substring(firstQuote + 1, lastQuote);
           } else {
             // No quotes found, treat the whole text as the quote
             newQuote = addText;
@@ -433,7 +453,7 @@ export default {
           if (success) {
             return Response.json({
               response_type: "ephemeral",
-              text: `✅ Successfully added new rayfirmation!\n\n>${newQuote}\n\n:rayfirmation:Thank you for contributing to the collection! ✨`,
+              text: `✅ Successfully added new customer affirmation!\n\n>${newQuote}\n\n:customer_affirmation:Thank you for contributing to the collection! ✨`,
               emoji: true,
             });
           } else {
@@ -446,36 +466,39 @@ export default {
 
         // Check if user wants stats
         if (text.trim().toLowerCase() === "stats") {
-          const totalShared = await getTotalRayfirmShares();
-          const totalQuotes = await getRayfirmationsCount();
-          const lastQuotes = await getLastQuotesWithContributors(5);
-          const topRayfirmers = await getTopRayfirmers(3);
+          const totalShared = await getTotalCustomerAffirmationsShared();
+          const totalQuotes = await getCustomerAffirmationsCount();
+          const lastQuotes = await getLastCustomerAffirmationsWithContributors(
+            5
+          );
+          const topCustomerAffirmationContributors =
+            await getTopCustomerAffirmationContributors(3);
 
           return Response.json({
             response_type: "ephemeral",
-            text: `📊 Rayfirmations Statistics\nTotal Shared: ${totalShared.toLocaleString()}\nAvailable Quotes: ${totalQuotes.toLocaleString()}`,
+            text: `📊 Customer Affirmations Statistics\nTotal Shared: ${totalShared.toLocaleString()}\nAvailable Quotes: ${totalQuotes.toLocaleString()}`,
             blocks: createStatsBlocks(
               userName,
               totalShared,
               totalQuotes,
               lastQuotes,
-              topRayfirmers
+              topCustomerAffirmationContributors
             ),
             emoji: true,
           });
         }
 
-        // Get a random rayfirmation from D1
-        const randomRayfirmation = await getRandomRayfirmation();
+        // Get a random customer affirmation from D1
+        const randomCustomerAffirmation = await getRandomCustomerAffirmation();
 
         // Get current total count
         const totalCount = await getTotalCount();
 
         return Response.json({
           response_type: "ephemeral", // Private message with buttons
-          text: randomRayfirmation,
-          blocks: createRayfirmationBlocks(
-            randomRayfirmation,
+          text: randomCustomerAffirmation,
+          blocks: createCustomerAffirmationBlocks(
+            randomCustomerAffirmation,
             userName,
             totalCount
           ),
@@ -485,11 +508,11 @@ export default {
         return new Response("Unrecognized Slack request", { status: 400 });
       }
     } catch (error) {
-      console.error("Error processing rayfirmation request:", error);
+      console.error("Error processing customer affirmation request:", error);
 
       return Response.json({
         response_type: "ephemeral", // Only visible to the user who ran the command
-        text: "🤖 Oops! Something went wrong getting your rayfirmation. Ray would say 'We're gonna get through this!' 💪",
+        text: "🤖 Oops! Something went wrong getting your customer affirmation. Ray would say 'We're gonna get through this!' 💪",
       });
     }
   },

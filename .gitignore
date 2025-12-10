@@ -133,6 +133,8 @@ jspm_packages/
 # dotenv environment variables file
 .env
 
+.wrangler/
+
 # parcel-bundler cache
 .cache
 .parcel-cache
