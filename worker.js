@@ -290,7 +290,7 @@ export default {
               type: "button",
               text: {
                 type: "plain_text",
-                text: "💫 Customer Affirmation",
+                text: "💫 Share the love",
                 emoji: true,
               },
               value: affirmationText,
