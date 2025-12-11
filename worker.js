@@ -161,14 +161,14 @@ export default {
             {
               type: "mrkdwn",
               text:
-                "*Total Customer Affirmations Shared:* :chart_with_upwards_trend:\n`" +
+                "*Total Customer Quotes Shared:* :chart_with_upwards_trend:\n`" +
                 totalShared.toLocaleString() +
                 "`",
             },
             {
               type: "mrkdwn",
               text:
-                "*Available Customer Affirmations:* :customer_affirmation:\n`" +
+                "*Total Available Customer Quotes:* :tg-heart:\n`" +
                 totalQuotes.toLocaleString() +
                 "`",
             },
@@ -182,14 +182,12 @@ export default {
           text: {
             type: "mrkdwn",
             text:
-              `*Top 3 Customer Affirmation Contributors: :trophy:*
+              `*Top 3 Customer Love users: :trophy:*
 ` +
               topCustomerAffirmationContributors
                 .map(
                   (u, i) =>
-                    `${i + 1}. <@${u.user_id}> — ${
-                      u.count
-                    } customer affirmations`
+                    `${i + 1}. <@${u.user_id}> — ${u.count} customer quotes`
                 )
                 .join("\n"),
           },
@@ -204,7 +202,7 @@ export default {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: "*Last 5 Added Customer Affirmations:* :new:",
+            text: "*Last 5 Added Customer Quotes:* :new:",
           },
         });
         lastQuotes.forEach((q, i) => {
@@ -225,7 +223,7 @@ export default {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: ':bulb: *To add a new customer affirmation, use:* `/customer_love add "Quote here" "Name (email)"`',
+          text: ':bulb: *To add a new customer quote, use:* `/customer_love add "Quote here" "Name (email)"`',
         },
       });
 
@@ -510,7 +508,7 @@ export default {
                 type: "section",
                 text: {
                   type: "mrkdwn",
-                  text: ':bulb: *To add a new customer affirmation, use:* `/customer_love add "Quote here" "Name (email)"`',
+                  text: ':bulb: *To add a new customer quote, use:* `/customer_love add "Quote here" "Name (email)"`',
                 },
               },
               {
@@ -530,7 +528,7 @@ export default {
         if (text.trim().toLowerCase() === "new") {
           return Response.json({
             response_type: "ephemeral",
-            text: '🤖 To add a new customer affirmation, please use the format:\n`/customer_love add "Your new quote here" "Name (email)"`\n\nExample: `/customer_love add "TG is absolutely amazing!" "Jimmy Donaldson (jimmy@someemail.com)"`',
+            text: '🤖 To add a new customer quote, please use the format:\n`/customer_love add "Your new quote here" "Name (email)"`\n\nExample: `/customer_love add "TG is absolutely amazing!" "Jimmy Donaldson (jimmy@someemail.com)"`',
           });
         }
 
@@ -731,11 +729,11 @@ export default {
           );
 
           if (success) {
-            let successMessage = `✅ Successfully added new customer affirmation!\n\n>${newQuote}`;
+            let successMessage = `✅ Successfully added new customer quote!\n\n>${newQuote}`;
             if (cleanedAuthor) {
               successMessage += `\n\nBy: ${cleanedAuthor}`;
             }
-            successMessage += `\n\n:customer_affirmation:Thank you for contributing to the collection! ✨`;
+            successMessage += `\n\n:customer_affirmation: Thank you for contributing to the collection! ✨`;
 
             return Response.json({
               response_type: "ephemeral",
@@ -762,7 +760,7 @@ export default {
 
           return Response.json({
             response_type: "ephemeral",
-            text: `📊 Customer Affirmations Statistics\nTotal Shared: ${totalShared.toLocaleString()}\nAvailable Quotes: ${totalQuotes.toLocaleString()}`,
+            text: `📊 Customer Love Statistics\nTotal Shared: ${totalShared.toLocaleString()}\nAvailable Quotes: ${totalQuotes.toLocaleString()}`,
             blocks: createStatsBlocks(
               userName,
               totalShared,
