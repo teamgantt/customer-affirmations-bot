@@ -225,6 +225,10 @@ The bot can be tested using tools like:
 - `TOTAL_COUNT` - KV namespace for tracking usage statistics
 - `RAYDB` - D1 database for storing rayfirmations
 
+## For Deployment
+
+See [deployment docs](/DEPLOYMENT.md)
+
 ## Contributing
 
 1. Fork the repository
