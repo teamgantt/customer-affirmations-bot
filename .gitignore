@@ -164,7 +164,6 @@ jspm_packages/
 .vscode-test
 
 # Cloudflare Workers specific
-wrangler.toml
 .dev.vars
 
 # OS generated files

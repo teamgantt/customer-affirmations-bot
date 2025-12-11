@@ -1,0 +1,34 @@
+name = "customer-affirmations"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# KV namespace for tracking usage
+# You'll need to replace this with your actual KV namespace ID
+# Run: wrangler kv:namespace create "TOTAL_AFFIRMATIONS_COUNT" to get the ID
+[[kv_namespaces]]
+binding = "TOTAL_AFFIRMATIONS_COUNT"
+id = "6f9a1a8d358340f18995d235df72d7da"
+preview_id = "total-affirmations-count-preview"
+
+# D1 database for storing rayfirmations
+# You'll need to replace this with your actual D1 database ID
+# Run: wrangler d1 create rayfirmations-db to get the ID
+[[d1_databases]]
+binding = "CUSTOMER_AFFIRMATIONS_DB"
+database_name = "CUSTOMER_AFFIRMATIONS_DB"
+database_id = "46a3780a-9457-44a0-8d82-e08c1e875273"
+
+# Environment variables (if needed)
+# [vars]
+# EXAMPLE_VAR = "example_value"
+
+[triggers]
+crons = []
+
+[observability]
+enabled = true
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
