@@ -161,14 +161,14 @@ export default {
             {
               type: "mrkdwn",
               text:
-                "*Total Customer Quotes Shared:* :chart_with_upwards_trend:\n`" +
+                "*Total Quotes Shared in Slack:* :chart_with_upwards_trend:\n`" +
                 totalShared.toLocaleString() +
                 "`",
             },
             {
               type: "mrkdwn",
               text:
-                "*Total Available Customer Quotes:* :tg-heart:\n`" +
+                "*Total Available Quotes:* :tg-heart:\n`" +
                 totalQuotes.toLocaleString() +
                 "`",
             },
@@ -186,8 +186,7 @@ export default {
 ` +
               topCustomerAffirmationContributors
                 .map(
-                  (u, i) =>
-                    `${i + 1}. <@${u.user_id}> — ${u.count} customer quotes`
+                  (u, i) => `${i + 1}. <@${u.user_id}> — ${u.count} share(s)`
                 )
                 .join("\n"),
           },
